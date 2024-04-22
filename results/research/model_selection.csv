@@ -1,0 +1,10 @@
+agent_seed,checkpoint,validation_information_mean
+11,checkpoint_step_10000.pt,4.519016116729237
+11,checkpoint_step_20000.pt,5.192630747515443
+11,checkpoint_step_30000.pt,5.371436282774551
+29,checkpoint_step_10000.pt,4.714586904012827
+29,checkpoint_step_20000.pt,5.233928580641
+29,checkpoint_step_30000.pt,5.30753568274152
+47,checkpoint_step_10000.pt,4.6147405497253695
+47,checkpoint_step_20000.pt,5.180988167875416
+47,checkpoint_step_30000.pt,5.309082696653006
