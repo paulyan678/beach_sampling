@@ -20,6 +20,10 @@ class BeachConfig:
     sample_budget: int = 10
     observation_noise: float = 0.20
     prior_variance: float = 1.0
+    information_regime: str = "diffuse"
+    rare_hotspot_loading: float = 0.30
+    background_loading: float = 0.005
+    rare_hotspot_width: float = 0.055
     movement_cost: float = 0.003
     invalid_action_cost: float = 0.05
     revisit_cost: float = 0.002
@@ -32,8 +36,18 @@ class BeachConfig:
             raise ValueError("grid and RBF dimensions must exceed one")
         if not (0 < self.sample_budget <= self.horizon):
             raise ValueError("sample_budget must be in [1, horizon]")
-        if self.observation_noise <= 0 or self.prior_variance <= 0:
+        if (
+            self.observation_noise <= 0
+            or self.prior_variance <= 0
+            or self.rare_hotspot_loading <= 0
+            or self.background_loading <= 0
+            or self.rare_hotspot_width <= 0
+        ):
             raise ValueError("Bayesian variances must be positive")
+        if self.information_regime not in {"diffuse", "rare_hotspot"}:
+            raise ValueError("information_regime must be 'diffuse' or 'rare_hotspot'")
+        if self.background_loading >= self.rare_hotspot_loading:
+            raise ValueError("background loading must be smaller than hotspot loading")
         if (
             self.potential_shaping_scale < 0
             or self.wait_cost < 0
@@ -111,9 +125,10 @@ class ExperimentConfig:
         self.beach.validate()
         self.agent.validate()
         self.training.validate()
-        if self.beach.potential_shaping_scale > 0 and not abs(
-            self.beach.shaping_gamma - self.agent.gamma
-        ) < 1e-12:
+        if (
+            self.beach.potential_shaping_scale > 0
+            and not abs(self.beach.shaping_gamma - self.agent.gamma) < 1e-12
+        ):
             raise ValueError("potential-shaping gamma must equal the agent gamma")
 
     def to_dict(self) -> dict[str, Any]:

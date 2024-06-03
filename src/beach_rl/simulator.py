@@ -36,16 +36,32 @@ def rbf_design(config: BeachConfig, risk: FloatArray) -> FloatArray:
         np.linspace(0.0, 1.0, config.rbf_cols),
         indexing="ij",
     )
-    distance2 = (
-        (yy[..., None] - centres_y.ravel()) ** 2
-        + (xx[..., None] - centres_x.ravel()) ** 2
-    )
+    distance2 = (yy[..., None] - centres_y.ravel()) ** 2 + (xx[..., None] - centres_x.ravel()) ** 2
     base = np.exp(-0.5 * distance2 / config.rbf_length_scale**2)
     # Morphodynamics condition both the prior mean and where its uncertainty lies.
     profile_scale = 0.55 + 0.9 * risk[..., None]
     phi = base * profile_scale
     norms = np.sqrt(np.sum(phi**2, axis=(0, 1), keepdims=True))
     return (phi / np.maximum(norms, 1e-12)).reshape(config.height * config.width, -1)
+
+
+def rare_band_design(config: BeachConfig, risk: FloatArray) -> FloatArray:
+    """Nonstationary basis with sparse high-value wrack-line observations.
+
+    The latent weights retain a moderate unit Gaussian prior. Information contrast
+    comes from spatial observation sensitivity: a fixed, nonzero background loading
+    everywhere and one high loading at each of the most deposition-prone cells.
+    """
+    cells = config.height * config.width
+    features = np.full(
+        (cells, config.rbf_rows * config.rbf_cols),
+        config.background_loading,
+        dtype=np.float64,
+    )
+    ranking = np.argsort(-risk.ravel(), kind="stable")
+    for feature_index, cell_index in enumerate(ranking[: features.shape[1]]):
+        features[cell_index, feature_index] = config.rare_hotspot_loading
+    return features
 
 
 def _ridge_projection(features: FloatArray, target: FloatArray) -> FloatArray:
@@ -64,11 +80,13 @@ class BeachProfile:
     traversable: NDArray[np.bool_]
     features: FloatArray
     prior_mean: FloatArray
+    prior_covariance: FloatArray
     true_weights: FloatArray
     start: tuple[int, int]
     seed: int
     source: str = "synthetic"
     truth_source: str = "prior_draw"
+    information_regime: str = "diffuse"
 
     @property
     def shape(self) -> tuple[int, int]:
@@ -108,12 +126,16 @@ class SyntheticBeachGenerator:
         low_energy = np.exp(-np.abs(np.gradient(elevation, axis=1)) / 0.30)
         morph_change = np.abs(np.gradient(np.gradient(elevation, axis=1), axis=1))
         longshore = 0.5 + 0.5 * np.sin(2 * np.pi * y + rng.uniform(0, 2 * np.pi))
-        risk = _normalise(
-            0.55 * runup_deposition
-            + 0.20 * low_energy
-            + 0.15 * morph_change
-            + 0.10 * longshore
+        diffuse_risk = _normalise(
+            0.55 * runup_deposition + 0.20 * low_energy + 0.15 * morph_change + 0.10 * longshore
         )
+
+        if self.config.information_regime == "rare_hotspot":
+            cross_shore_band = np.exp(-0.5 * ((x - 1.0) / self.config.rare_hotspot_width) ** 2)
+            alongshore_texture = 0.90 + 0.10 * np.cos(2 * np.pi * y + rng.uniform(0, 2 * np.pi))
+            risk = _normalise(cross_shore_band * alongshore_texture)
+        else:
+            risk = diffuse_risk
 
         traversable = elevation > 0.02
         # Preserve a connected dry corridor on small/extreme randomly generated cases.
@@ -122,21 +144,27 @@ class SyntheticBeachGenerator:
         locations = np.argwhere(traversable)
         start = tuple(locations[np.argmin(np.sum((locations - desired) ** 2, axis=1))])
 
-        features = rbf_design(self.config, risk)
+        features = (
+            rare_band_design(self.config, risk)
+            if self.config.information_regime == "rare_hotspot"
+            else rbf_design(self.config, risk)
+        )
         target = -0.7 + 2.0 * risk.ravel()
         prior_mean = _ridge_projection(features, target)
-        true_weights = prior_mean + rng.normal(
-            0.0, np.sqrt(self.config.prior_variance), size=features.shape[1]
-        )
+        prior_variances = np.full(features.shape[1], self.config.prior_variance)
+        prior_covariance = np.diag(prior_variances)
+        true_weights = prior_mean + rng.normal(0.0, np.sqrt(prior_variances))
         return BeachProfile(
             elevation=elevation.astype(np.float64),
             deposition_risk=risk.astype(np.float64),
             traversable=traversable,
             features=features,
             prior_mean=prior_mean,
+            prior_covariance=prior_covariance,
             true_weights=true_weights,
             start=(int(start[0]), int(start[1])),
             seed=seed,
+            information_regime=self.config.information_regime,
         )
 
 
@@ -208,18 +236,25 @@ class XBeachExportAdapter:
                     queue.append(nxt)
         if len(component) < self.config.sample_budget:
             raise ValueError("start component is too small for the configured sampling budget")
-        features = rbf_design(self.config, risk)
+        features = (
+            rare_band_design(self.config, risk)
+            if self.config.information_regime == "rare_hotspot"
+            else rbf_design(self.config, risk)
+        )
+        if self.config.information_regime == "rare_hotspot":
+            prior_variances = np.full(features.shape[1], self.config.prior_variance)
+        else:
+            prior_variances = np.full(features.shape[1], self.config.prior_variance)
         target = -0.7 + 2.0 * risk.ravel()
         prior_mean = _ridge_projection(features, target)
+        prior_covariance = np.diag(prior_variances)
         if "log_concentration" in fields:
             measured_truth = self._resize(fields["log_concentration"], shape).ravel()
             true_weights = _ridge_projection(features, measured_truth)
             truth_source = "exported_log_concentration"
         else:
             rng = np.random.default_rng(seed)
-            true_weights = prior_mean + rng.normal(
-                0.0, np.sqrt(self.config.prior_variance), size=features.shape[1]
-            )
+            true_weights = prior_mean + rng.normal(0.0, np.sqrt(prior_variances))
             truth_source = "prior_draw"
         return BeachProfile(
             elevation=zb,
@@ -227,9 +262,11 @@ class XBeachExportAdapter:
             traversable=traversable,
             features=features,
             prior_mean=prior_mean,
+            prior_covariance=prior_covariance,
             true_weights=true_weights,
             start=start,
             seed=seed,
             source=str(Path(path)),
             truth_source=truth_source,
+            information_regime=self.config.information_regime,
         )
