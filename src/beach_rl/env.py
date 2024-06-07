@@ -41,6 +41,7 @@ class BeachSamplingEnv:
 
     n_actions = len(Action)
     n_channels = 8
+
     def __init__(self, config: BeachConfig, seed: int = 0):
         self.config = config
         self.n_features = config.rbf_rows * config.rbf_cols
@@ -73,11 +74,27 @@ class BeachSamplingEnv:
         expected = (self.config.height, self.config.width)
         if self.profile.shape != expected:
             raise ValueError(f"profile shape {self.profile.shape} != configured shape {expected}")
-        self.belief = GaussianSpatialBelief.from_prior(
+        self.belief = GaussianSpatialBelief.from_covariance(
             self.profile.prior_mean,
-            self.config.prior_variance,
+            self.profile.prior_covariance,
             self.config.observation_noise**2,
         )
+        if self.config.information_regime == "diffuse":
+            # Preserve the v0.1 observation scaling used by the archived dense run.
+            self._covariance_scale = self.config.prior_variance
+            self._predictive_scale = max(np.sqrt(self.config.prior_variance), 1e-6)
+            self._mean_scale = 4.0
+        else:
+            self._covariance_scale = max(float(np.diag(self.profile.prior_covariance).max()), 1e-12)
+            prior_latent_variance = np.einsum(
+                "ij,jk,ik->i",
+                self.profile.features,
+                self.profile.prior_covariance,
+                self.profile.features,
+                optimize=True,
+            )
+            self._predictive_scale = max(float(np.sqrt(prior_latent_variance.max())), 1e-6)
+            self._mean_scale = max(4.0, np.sqrt(self._covariance_scale))
         self.position = self.profile.start
         self.steps = self.samples = self.path_length = 0
         self.cumulative_information = 0.0
@@ -113,9 +130,7 @@ class BeachSamplingEnv:
             self.profile.features,
             optimize=True,
         )
-        information = 0.5 * np.log1p(
-            np.maximum(latent_variance, 0.0) / self.belief.noise_variance
-        )
+        information = 0.5 * np.log1p(np.maximum(latent_variance, 0.0) / self.belief.noise_variance)
         return information.reshape(self.profile.shape)
 
     def _shaping_potential(self) -> float:
@@ -141,7 +156,7 @@ class BeachSamplingEnv:
                 np.clip(elevation, -4, 4) / 4,
                 self.profile.deposition_risk,
                 np.tanh(mean_map / 3.0),
-                std_map / max(np.sqrt(self.config.prior_variance), 1e-6),
+                std_map / self._predictive_scale,
                 np.clip(self.sample_counts, 0, 3) / 3,
                 robot,
                 self.profile.traversable.astype(np.float64),
@@ -153,14 +168,14 @@ class BeachSamplingEnv:
             (
                 np.array(
                     [
-                self.steps / self.config.horizon,
-                self.samples / self.config.sample_budget,
-                self.path_length / self.config.horizon,
+                        self.steps / self.config.horizon,
+                        self.samples / self.config.sample_budget,
+                        self.path_length / self.config.horizon,
                     ],
                     dtype=np.float64,
                 ),
-                self.belief.mean / 4.0,
-                self.belief.covariance.ravel() / self.config.prior_variance,
+                self.belief.mean / self._mean_scale,
+                self.belief.covariance.ravel() / self._covariance_scale,
             )
         ).astype(np.float32)
         return {"spatial": channels, "scalars": scalars}
@@ -173,6 +188,7 @@ class BeachSamplingEnv:
             "path_length": self.path_length,
             "position": self.position,
             "profile_seed": self.profile.seed,
+            "information_regime": self.profile.information_regime,
         }
 
     def step(
@@ -194,9 +210,7 @@ class BeachSamplingEnv:
         elif selected == Action.SAMPLE:
             index = self._flat_index()
             feature = self.profile.features[index]
-            truth = float(
-                np.einsum("i,i->", feature, self.profile.true_weights, optimize=True)
-            )
+            truth = float(np.einsum("i,i->", feature, self.profile.true_weights, optimize=True))
             measurement = truth + float(self._rng.normal(0, self.config.observation_noise))
             sampled_information = self.belief.update(feature, measurement)
             self.sample_counts[self.position] += 1

@@ -25,6 +25,19 @@ class GaussianSpatialBelief:
         covariance = np.eye(mean.size, dtype=np.float64) * prior_variance
         return cls(mean.copy(), covariance, noise_variance)
 
+    @classmethod
+    def from_covariance(
+        cls, mean: FloatArray, covariance: FloatArray, noise_variance: float
+    ) -> GaussianSpatialBelief:
+        covariance = np.asarray(covariance, dtype=np.float64)
+        if covariance.shape != (mean.size, mean.size):
+            raise ValueError("prior covariance shape does not match the belief mean")
+        if not np.allclose(covariance, covariance.T, atol=1e-12):
+            raise ValueError("prior covariance must be symmetric")
+        if np.linalg.eigvalsh(covariance).min() <= 0:
+            raise ValueError("prior covariance must be positive definite")
+        return cls(mean.copy(), covariance.copy(), noise_variance)
+
     def information_gain(self, feature: FloatArray) -> float:
         """Exact conditional mutual information ``I(theta; y | D)`` in nats."""
         latent_variance = float(
@@ -41,9 +54,7 @@ class GaussianSpatialBelief:
         if innovation_variance <= 0 or not np.isfinite(innovation_variance):
             raise FloatingPointError("non-positive Bayesian innovation variance")
         gain = projected / innovation_variance
-        innovation = measurement - float(
-            np.einsum("i,i->", feature, self.mean, optimize=True)
-        )
+        innovation = measurement - float(np.einsum("i,i->", feature, self.mean, optimize=True))
         info_gain = 0.5 * float(np.log(innovation_variance / self.noise_variance))
         self.mean = self.mean + gain * innovation
         self.covariance = self.covariance - np.outer(projected, projected) / innovation_variance
