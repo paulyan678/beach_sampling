@@ -15,9 +15,7 @@ from beach_rl.env import MOVES, Action, BeachSamplingEnv
 class Policy(Protocol):
     def reset(self, env: BeachSamplingEnv) -> None: ...
 
-    def act(
-        self, env: BeachSamplingEnv, observation: dict[str, NDArray[np.float32]]
-    ) -> int: ...
+    def act(self, env: BeachSamplingEnv, observation: dict[str, NDArray[np.float32]]) -> int: ...
 
 
 class RandomPolicy:
@@ -33,9 +31,32 @@ class RandomPolicy:
         return int(self.rng.choice(valid))
 
 
-def _shortest_first_action(
-    env: BeachSamplingEnv, target: tuple[int, int]
-) -> int | None:
+class UniformTargetPolicy:
+    """Choose reachable sampling targets uniformly, then follow shortest paths."""
+
+    def __init__(self, seed: int = 0):
+        self.rng = np.random.default_rng(seed)
+        self.target: tuple[int, int] | None = None
+
+    def reset(self, env: BeachSamplingEnv) -> None:
+        self.target = None
+
+    def act(self, env: BeachSamplingEnv, observation: dict[str, NDArray[np.float32]]) -> int:
+        del observation
+        if env.samples >= env.config.sample_budget:
+            return int(Action.WAIT)
+        if self.target is None or env.sample_counts[self.target] > 0:
+            candidates = _reachable(env)
+            unsampled = [cell for cell in candidates if env.sample_counts[cell] == 0]
+            self.target = unsampled[int(self.rng.integers(len(unsampled)))]
+        action = _shortest_first_action(env, self.target)
+        if action is None:
+            self.target = None
+            return int(Action.WAIT)
+        return action
+
+
+def _shortest_first_action(env: BeachSamplingEnv, target: tuple[int, int]) -> int | None:
     """Breadth-first shortest path on the current profile's traversability graph."""
     if env.position == target:
         return int(Action.SAMPLE)
@@ -92,9 +113,7 @@ class LawnmowerPolicy:
         route: list[tuple[int, int]] = []
         for row in range(env.config.height):
             columns = (
-                range(env.config.width)
-                if row % 2 == 0
-                else range(env.config.width - 1, -1, -1)
+                range(env.config.width) if row % 2 == 0 else range(env.config.width - 1, -1, -1)
             )
             route.extend((row, col) for col in columns if (row, col) in reachable)
         if not route:

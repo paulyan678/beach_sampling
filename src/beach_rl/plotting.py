@@ -39,7 +39,17 @@ def plot_benchmark(summary: pd.DataFrame, path: str | Path) -> None:
         ]
     )
     figure, axis = plt.subplots(figsize=(7.2, 4.2))
-    axis.barh(ordered["policy"], ordered["information_mean"], xerr=error, capsize=3)
+    bars = axis.barh(ordered["policy"], ordered["information_mean"], xerr=error, capsize=3)
+    maximum = float(ordered["information_ci95_high"].max())
+    for bar, value in zip(bars, ordered["information_mean"], strict=True):
+        axis.text(
+            float(value) + 0.012 * maximum,
+            bar.get_y() + bar.get_height() / 2,
+            f"{float(value):.3f}",
+            va="center",
+            fontsize=8,
+        )
+    axis.set_xlim(0, 1.12 * maximum)
     axis.set(xlabel="cumulative mutual information (nats)")
     axis.grid(axis="x", alpha=0.25)
     figure.tight_layout()
