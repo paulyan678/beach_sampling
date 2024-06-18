@@ -28,8 +28,7 @@ def evaluate_policies(
 ) -> EvaluationResult:
     rows: list[dict[str, float | int | str]] = []
     coverage = {
-        name: np.zeros((config.height, config.width), dtype=np.float64)
-        for name in policy_factories
+        name: np.zeros((config.height, config.width), dtype=np.float64) for name in policy_factories
     }
     seeds = list(profile_seeds)
     for profile_seed in seeds:
@@ -127,7 +126,7 @@ def _paired_bootstrap_comparison(
     random_group: pd.DataFrame,
     rng: np.random.Generator,
     draws: int = 10_000,
-) -> tuple[np.ndarray, np.ndarray]:
+) -> tuple[np.ndarray, np.ndarray, np.ndarray]:
     random_series = random_group.groupby("profile_seed")["information_gain"].mean()
     has_agents = "agent_seed" in group and group["agent_seed"].notna().any()
     if has_agents:
@@ -141,6 +140,7 @@ def _paired_bootstrap_comparison(
     random = random_series.loc[common].to_numpy(dtype=np.float64)
     differences = np.empty(draws, dtype=np.float64)
     ratios = np.empty(draws, dtype=np.float64)
+    hundred_x_margins = np.empty(draws, dtype=np.float64)
     chunk = 250
     for start in range(0, draws, chunk):
         count = min(chunk, draws - start)
@@ -153,7 +153,8 @@ def _paired_bootstrap_comparison(
         random_mean = random[profile_indices].mean(axis=1)
         differences[start : start + count] = policy_mean - random_mean
         ratios[start : start + count] = policy_mean / np.maximum(random_mean, 1e-12)
-    return differences, ratios
+        hundred_x_margins[start : start + count] = policy_mean - 100.0 * random_mean
+    return differences, ratios, hundred_x_margins
 
 
 def _paired_randomisation_p(
@@ -219,24 +220,30 @@ def summarise_evaluation(episodes: pd.DataFrame, seed: int = 2026) -> pd.DataFra
                 paired.loc[common].mean() / max(random_values.loc[common].mean(), 1e-12)
             )
             row["difference_to_random"] = float(difference.mean())
+            row["log_ratio_to_random"] = float(np.log(max(row["ratio_to_random"], 1e-12)))
+            row["margin_over_100x_random"] = float(
+                paired.loc[common].mean() - 100.0 * random_values.loc[common].mean()
+            )
             row["paired_randomisation_p"] = (
                 1.0 if policy == "random" else _paired_randomisation_p(difference, rng)
             )
             random_group = episodes[episodes.policy == "random"]
-            bootstrap_difference, bootstrap_ratio = _paired_bootstrap_comparison(
-                raw_group, random_group, rng
-            )
-            difference_low, difference_high = np.quantile(
-                bootstrap_difference, [0.025, 0.975]
-            )
+            (
+                bootstrap_difference,
+                bootstrap_ratio,
+                bootstrap_hundred_x_margin,
+            ) = _paired_bootstrap_comparison(raw_group, random_group, rng)
+            difference_low, difference_high = np.quantile(bootstrap_difference, [0.025, 0.975])
             ratio_low, ratio_high = np.quantile(bootstrap_ratio, [0.025, 0.975])
+            margin_low, margin_high = np.quantile(bootstrap_hundred_x_margin, [0.025, 0.975])
             row["difference_ci95_low"] = float(difference_low)
             row["difference_ci95_high"] = float(difference_high)
             row["ratio_ci95_low"] = float(ratio_low)
             row["ratio_ci95_high"] = float(ratio_high)
+            row["margin_over_100x_ci95_low"] = float(margin_low)
+            row["margin_over_100x_ci95_high"] = float(margin_high)
+            row["hundred_x_certified"] = bool(margin_low > 0.0)
         rows.append(row)
     return (
-        pd.DataFrame(rows)
-        .sort_values("information_mean", ascending=False)
-        .reset_index(drop=True)
+        pd.DataFrame(rows).sort_values("information_mean", ascending=False).reset_index(drop=True)
     )
