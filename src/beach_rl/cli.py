@@ -28,6 +28,11 @@ from beach_rl.policies import (
     LawnmowerPolicy,
     RainbowPolicy,
     RandomPolicy,
+    UniformTargetPolicy,
+)
+from beach_rl.sensitivity import (
+    evaluate_background_loading_sensitivity,
+    plot_loading_sensitivity,
 )
 from beach_rl.simulator import BeachProfile, XBeachExportAdapter
 from beach_rl.training import train_agent
@@ -79,9 +84,7 @@ def _write_case_manifest(output: Path, root: str | None) -> None:
             }
         )
     output.mkdir(parents=True, exist_ok=True)
-    (output / "case_bank_manifest.json").write_text(
-        json.dumps(records, indent=2), encoding="utf-8"
-    )
+    (output / "case_bank_manifest.json").write_text(json.dumps(records, indent=2), encoding="utf-8")
 
 
 def _config_with_overrides(args: argparse.Namespace) -> ExperimentConfig:
@@ -130,11 +133,16 @@ def _write_results_markdown(summary: pd.DataFrame, output: Path, config: Experim
         "information_ci95_low",
         "information_ci95_high",
         "ratio_to_random",
+        "ratio_ci95_low",
+        "ratio_ci95_high",
+        "margin_over_100x_random",
+        "margin_over_100x_ci95_low",
+        "hundred_x_certified",
         "rmse_mean",
         "path_length_mean",
     ]
     table = summary[columns].copy()
-    for column in columns[1:]:
+    for column in [name for name in columns[1:] if name != "hundred_x_certified"]:
         table[column] = table[column].map(lambda value: f"{value:.4f}")
     header = "| " + " | ".join(columns) + " |"
     separator = "| " + " | ".join("---" for _ in columns) + " |"
@@ -185,6 +193,7 @@ def command_evaluate(args: argparse.Namespace) -> None:
     provider = _case_provider(config, test_files, config.training.eval_seed)
     factories = {
         "random": lambda seed: RandomPolicy(seed),
+        "uniform_target": lambda seed: UniformTargetPolicy(seed),
         "lawnmower": lambda seed: LawnmowerPolicy(),
         "greedy_information": lambda seed: GreedyInformationPolicy(),
         "rainbow": lambda seed: RainbowPolicy(agent),
@@ -212,9 +221,7 @@ def command_study(args: argparse.Namespace) -> None:
     if test_files and len(test_files) < config.training.eval_profiles:
         raise ValueError("test case bank is smaller than the configured split")
     train_provider = _case_provider(config, train_files)
-    validation_provider = _case_provider(
-        config, validation_files, config.training.validation_seed
-    )
+    validation_provider = _case_provider(config, validation_files, config.training.validation_seed)
     test_provider = _case_provider(config, test_files, config.training.eval_seed)
 
     training_frames: dict[int, pd.DataFrame] = {}
@@ -264,6 +271,7 @@ def command_study(args: argparse.Namespace) -> None:
 
     baseline_factories = {
         "random": lambda seed: RandomPolicy(seed),
+        "uniform_target": lambda seed: UniformTargetPolicy(seed),
         "lawnmower": lambda seed: LawnmowerPolicy(),
         "greedy_information": lambda seed: GreedyInformationPolicy(),
     }
@@ -272,9 +280,7 @@ def command_study(args: argparse.Namespace) -> None:
         profile_seeds: range,
         provider: Callable[[int], BeachProfile] | None,
     ) -> EvaluationResult:
-        baseline = evaluate_policies(
-            config.beach, baseline_factories, profile_seeds, provider
-        )
+        baseline = evaluate_policies(config.beach, baseline_factories, profile_seeds, provider)
         frames = [baseline.episodes]
         rainbow_coverages: list[np.ndarray] = []
         for agent_seed, agent in agents.items():
@@ -319,6 +325,22 @@ def command_study(args: argparse.Namespace) -> None:
     print(summary.to_string(index=False))
 
 
+def command_sensitivity(args: argparse.Namespace) -> None:
+    config = _config_with_overrides(args)
+    output = Path(args.output)
+    output.mkdir(parents=True, exist_ok=True)
+    profile_seeds = range(
+        config.training.eval_seed,
+        config.training.eval_seed + config.training.eval_profiles,
+    )
+    frame = evaluate_background_loading_sensitivity(
+        config.beach, args.background_loadings, profile_seeds
+    )
+    frame.to_csv(output / "background_loading_sensitivity.csv", index=False)
+    plot_loading_sensitivity(frame, output / "background_loading_sensitivity.png")
+    print(frame.to_string(index=False))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="beach-rl",
@@ -351,6 +373,18 @@ def build_parser() -> argparse.ArgumentParser:
     study = subparsers.add_parser("study", help="run the complete multi-seed replication")
     common(study)
     study.set_defaults(function=command_study)
+
+    sensitivity = subparsers.add_parser(
+        "sensitivity", help="sweep rare-regime background observation loading"
+    )
+    common(sensitivity)
+    sensitivity.add_argument(
+        "--background-loadings",
+        type=float,
+        nargs="+",
+        default=[0.003, 0.004, 0.005, 0.006, 0.0075, 0.01],
+    )
+    sensitivity.set_defaults(function=command_sensitivity)
     return parser
 
 
