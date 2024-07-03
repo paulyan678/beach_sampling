@@ -15,6 +15,29 @@ def test_synthetic_profiles_are_reproducible_and_distinct() -> None:
     assert first.traversable[first.start]
 
 
+def test_rare_hotspot_prior_is_localised_and_high_contrast() -> None:
+    config = BeachConfig(
+        height=12,
+        width=48,
+        information_regime="rare_hotspot",
+        rare_hotspot_loading=0.30,
+        background_loading=0.005,
+        rare_hotspot_width=0.025,
+    )
+    profile = SyntheticBeachGenerator(config).generate(55)
+    variances = np.diag(profile.prior_covariance)
+    assert profile.information_regime == "rare_hotspot"
+    np.testing.assert_array_equal(variances, np.ones(18))
+    hotspot_cells = np.count_nonzero(
+        np.max(profile.features, axis=1) == config.rare_hotspot_loading
+    )
+    assert hotspot_cells == 18
+    background = np.all(profile.features == config.background_loading, axis=1)
+    assert np.count_nonzero(background) == config.height * config.width - 18
+    high_risk_columns = np.argwhere(profile.deposition_risk > 0.9)[:, 1]
+    assert np.all(high_risk_columns >= config.width - 2)
+
+
 def test_xbeach_npz_adapter(tmp_path) -> None:
     y, x = np.mgrid[0:6, 0:9]
     path = tmp_path / "xbeach_export.npz"

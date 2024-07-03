@@ -24,3 +24,10 @@ def test_posterior_is_psd_and_uncertainty_decreases() -> None:
     _, after = belief.predict(features)
     assert np.linalg.eigvalsh(belief.covariance).min() >= -1e-10
     assert np.all(after <= before + 1e-10)
+
+
+def test_profile_specific_prior_covariance_is_preserved() -> None:
+    mean = np.zeros(3)
+    covariance = np.diag([1.0e-4, 2.0, 7.0])
+    belief = GaussianSpatialBelief.from_covariance(mean, covariance, 0.04)
+    np.testing.assert_array_equal(belief.covariance, covariance)
