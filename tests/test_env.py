@@ -59,3 +59,31 @@ def test_wait_is_safe_on_isolated_profile() -> None:
     assert mask[int(Action.WAIT)]
     assert mask.sum() == 1
     env.step(int(Action.WAIT))
+
+
+def test_rare_background_information_matches_closed_form() -> None:
+    config = BeachConfig(
+        height=12,
+        width=48,
+        horizon=12,
+        sample_budget=10,
+        information_regime="rare_hotspot",
+        background_loading=0.005,
+        rare_hotspot_loading=0.30,
+        rare_hotspot_width=0.025,
+    )
+    env = BeachSamplingEnv(config)
+    env.reset(seed=1234)
+    feature = env.profile.features[env._flat_index()]
+    np.testing.assert_array_equal(feature, np.full(18, config.background_loading))
+    for _ in range(config.sample_budget):
+        env.step(int(Action.SAMPLE))
+    signal_to_noise = (
+        config.sample_budget
+        * 18
+        * config.background_loading**2
+        * config.prior_variance
+        / config.observation_noise**2
+    )
+    expected = 0.5 * np.log1p(signal_to_noise)
+    assert np.isclose(env.cumulative_information, expected, atol=1e-10)
