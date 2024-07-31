@@ -1,0 +1,10 @@
+agent_seed,checkpoint,validation_information_mean
+101,checkpoint_step_12000.pt,5.825882734012563
+101,checkpoint_step_4000.pt,5.770889133550069
+101,checkpoint_step_8000.pt,5.8226042751610985
+211,checkpoint_step_12000.pt,5.857965829349788
+211,checkpoint_step_4000.pt,5.803572145393743
+211,checkpoint_step_8000.pt,5.825931645615671
+307,checkpoint_step_12000.pt,5.886964278607145
+307,checkpoint_step_4000.pt,5.875273646130992
+307,checkpoint_step_8000.pt,5.8788191701354755
