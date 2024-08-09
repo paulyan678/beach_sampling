@@ -4,8 +4,8 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "beach-sampling-rl"
-version = "0.1.0"
-description = "Reproducible Bayesian deep-RL benchmark for autonomous beach microplastic sampling"
+version = "0.3.0"
+description = "Bayesian deep reinforcement learning for autonomous beach microplastic sampling"
 readme = "README.md"
 requires-python = ">=3.10"
 license = {text = "MIT"}

@@ -5,7 +5,7 @@ type: software
 authors:
   - family-names: Yan
     given-names: Paul
-version: 0.1.0
+version: 0.3.0
 date-released: 2026-07-13
 license: MIT
 repository-code: "https://github.com/paulyan678/beach_sampling"
