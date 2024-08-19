@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 
 from beach_rl.agent import RainbowAgent
@@ -37,5 +38,30 @@ def test_masked_action_selection_returns_valid_action() -> None:
     env = BeachSamplingEnv(beach)
     observation, info = env.reset(seed=4)
     agent = RainbowAgent(beach, config, env.n_channels, env.n_scalars, env.n_actions, "cpu")
+    values = agent.action_values(observation, info["action_mask"], deterministic=True)
     action = agent.act(observation, info["action_mask"], deterministic=True)
+    assert values.shape == (env.n_actions,)
+    assert np.all(np.isneginf(values[~info["action_mask"]]))
+    assert action == int(np.argmax(values))
     assert info["action_mask"][action]
+
+
+def test_legacy_dense_checkpoint_uses_default_information_schema(tmp_path) -> None:
+    beach = BeachConfig(height=8, width=12)
+    config = AgentConfig(atoms=11, hidden_dim=32, batch_size=2, replay_capacity=10)
+    env = BeachSamplingEnv(beach)
+    agent = RainbowAgent(beach, config, env.n_channels, env.n_scalars, env.n_actions, "cpu")
+    checkpoint_path = tmp_path / "legacy.pt"
+    agent.save(checkpoint_path)
+    checkpoint = torch.load(checkpoint_path, map_location="cpu", weights_only=False)
+    for name in (
+        "information_regime",
+        "rare_hotspot_loading",
+        "background_loading",
+        "rare_hotspot_width",
+    ):
+        checkpoint["beach_config"].pop(name)
+    torch.save(checkpoint, checkpoint_path)
+
+    restored = RainbowAgent(beach, config, env.n_channels, env.n_scalars, env.n_actions, "cpu")
+    restored.load(checkpoint_path)

@@ -66,12 +66,13 @@ class RainbowAgent:
         return torch.as_tensor(array, dtype=dtype, device=device)
 
     @torch.no_grad()
-    def act(
+    def action_values(
         self,
         observation: dict[str, NDArray[np.float32]],
         action_mask: NDArray[np.bool_],
         deterministic: bool = False,
-    ) -> int:
+    ) -> NDArray[np.float32]:
+        """Return masked expected returns for an inspectable policy decision."""
         previous_mode = self.online.training
         self.online.train(not deterministic)
         if not deterministic:
@@ -81,9 +82,18 @@ class RainbowAgent:
         q_values = self.online.q_values(spatial, scalars, self.support)[0]
         mask = self._tensor(action_mask, self.device, torch.bool)
         q_values = q_values.masked_fill(~mask, -torch.inf)
-        action = int(q_values.argmax().item())
+        values = q_values.detach().cpu().numpy().astype(np.float32)
         self.online.train(previous_mode)
-        return action
+        return values
+
+    def act(
+        self,
+        observation: dict[str, NDArray[np.float32]],
+        action_mask: NDArray[np.bool_],
+        deterministic: bool = False,
+    ) -> int:
+        values = self.action_values(observation, action_mask, deterministic)
+        return int(np.argmax(values))
 
     def _project_distribution(
         self,
@@ -185,8 +195,15 @@ class RainbowAgent:
         checkpoint = torch.load(path, map_location=self.device, weights_only=False)
         stored_beach = checkpoint.get("beach_config")
         stored_agent = checkpoint.get("agent_config")
-        if stored_beach is not None and stored_beach != asdict(self.beach_config):
-            raise ValueError("checkpoint beach configuration does not match the supplied YAML")
+        if stored_beach is not None:
+            # Checkpoints from the dense v0.1 experiment predate the explicitly
+            # named information-regime fields. Filling only missing schema keys
+            # with dataclass defaults keeps those checkpoints usable without
+            # weakening validation for values that were actually stored.
+            complete_beach = asdict(BeachConfig())
+            complete_beach.update(stored_beach)
+            if complete_beach != asdict(self.beach_config):
+                raise ValueError("checkpoint beach configuration does not match the supplied YAML")
         if stored_agent is not None and stored_agent != asdict(self.config):
             raise ValueError("checkpoint agent configuration does not match the supplied YAML")
         self.online.load_state_dict(checkpoint["model"])
