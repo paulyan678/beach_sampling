@@ -41,7 +41,7 @@ def test_hundred_x_margin_requires_positive_paired_lower_bound() -> None:
     rainbow = summary.set_index("policy").loc["rainbow"]
     assert np.isclose(rainbow["ratio_to_random"], 120.0)
     assert np.isclose(rainbow["margin_over_100x_random"], 1.0)
-    assert bool(rainbow["hundred_x_certified"])
+    assert bool(rainbow["hundred_x_threshold_exceeded"])
 
 
 def test_rare_regime_is_information_theoretically_100x_feasible() -> None:

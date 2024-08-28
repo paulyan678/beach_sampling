@@ -242,7 +242,7 @@ def summarise_evaluation(episodes: pd.DataFrame, seed: int = 2026) -> pd.DataFra
             row["ratio_ci95_high"] = float(ratio_high)
             row["margin_over_100x_ci95_low"] = float(margin_low)
             row["margin_over_100x_ci95_high"] = float(margin_high)
-            row["hundred_x_certified"] = bool(margin_low > 0.0)
+            row["hundred_x_threshold_exceeded"] = bool(margin_low > 0.0)
         rows.append(row)
     return (
         pd.DataFrame(rows).sort_values("information_mean", ascending=False).reset_index(drop=True)

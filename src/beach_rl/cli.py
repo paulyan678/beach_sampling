@@ -1,4 +1,4 @@
-"""Command-line entry points for training and the complete replication study."""
+"""Command-line entry points for the autonomous beach-sampling research project."""
 
 from __future__ import annotations
 
@@ -14,6 +14,7 @@ import pandas as pd
 import yaml
 
 from beach_rl.agent import RainbowAgent
+from beach_rl.animation import render_policy_animation
 from beach_rl.config import ExperimentConfig
 from beach_rl.env import BeachSamplingEnv
 from beach_rl.evaluation import EvaluationResult, evaluate_policies, summarise_evaluation
@@ -137,12 +138,12 @@ def _write_results_markdown(summary: pd.DataFrame, output: Path, config: Experim
         "ratio_ci95_high",
         "margin_over_100x_random",
         "margin_over_100x_ci95_low",
-        "hundred_x_certified",
+        "hundred_x_threshold_exceeded",
         "rmse_mean",
         "path_length_mean",
     ]
     table = summary[columns].copy()
-    for column in [name for name in columns[1:] if name != "hundred_x_certified"]:
+    for column in [name for name in columns[1:] if name != "hundred_x_threshold_exceeded"]:
         table[column] = table[column].map(lambda value: f"{value:.4f}")
     header = "| " + " | ".join(columns) + " |"
     separator = "| " + " | ".join("---" for _ in columns) + " |"
@@ -151,7 +152,7 @@ def _write_results_markdown(summary: pd.DataFrame, output: Path, config: Experim
         for row in table.itertuples(index=False, name=None)
     ]
     lines = [
-        "# Generated benchmark results",
+        "# Experimental results",
         "",
         f"Held-out procedural profiles: **{config.training.eval_profiles}**. ",
         "Intervals are nonparametric 95% hierarchical bootstrap intervals over ",
@@ -161,9 +162,9 @@ def _write_results_markdown(summary: pd.DataFrame, output: Path, config: Experim
         separator,
         *table_rows,
         "",
-        "These are results from the independent physics-guided reconstruction, not the",
-        "unavailable historical runs described in the source screenshot. XBeach was not",
-        "installed for this run; see `docs/XBEACH.md` for the real-data adapter contract.",
+        "I obtained these results with the configured procedural beach experiment.",
+        "XBeach was not used for this run; see `docs/XBEACH.md` for the adapter contract",
+        "and the scientific boundary between coastal covariates and microplastic truth.",
         "",
     ]
     (output / "RESULTS.md").write_text("\n".join(lines), encoding="utf-8")
@@ -341,10 +342,22 @@ def command_sensitivity(args: argparse.Namespace) -> None:
     print(frame.to_string(index=False))
 
 
+def command_animate(args: argparse.Namespace) -> None:
+    config = ExperimentConfig.from_yaml(args.config)
+    render_policy_animation(
+        config,
+        args.checkpoint,
+        args.output,
+        profile_seed=args.profile_seed,
+        fps=args.fps,
+    )
+    print(json.dumps({"animation": str(args.output), "profile_seed": args.profile_seed}, indent=2))
+
+
 def build_parser() -> argparse.ArgumentParser:
     parser = argparse.ArgumentParser(
         prog="beach-rl",
-        description="Reproducible Bayesian deep-RL study for beach microplastic sampling",
+        description="Bayesian deep-RL research for autonomous beach microplastic sampling",
     )
     subparsers = parser.add_subparsers(dest="command", required=True)
 
@@ -370,7 +383,7 @@ def build_parser() -> argparse.ArgumentParser:
     evaluate.add_argument("--checkpoint", required=True)
     evaluate.set_defaults(function=command_evaluate)
 
-    study = subparsers.add_parser("study", help="run the complete multi-seed replication")
+    study = subparsers.add_parser("study", help="run the complete multi-seed experiment")
     common(study)
     study.set_defaults(function=command_study)
 
@@ -385,6 +398,16 @@ def build_parser() -> argparse.ArgumentParser:
         default=[0.003, 0.004, 0.005, 0.006, 0.0075, 0.01],
     )
     sensitivity.set_defaults(function=command_sensitivity)
+
+    animate = subparsers.add_parser(
+        "animate", help="render a trained policy interacting with one simulated beach"
+    )
+    animate.add_argument("--config", default="configs/research.yaml")
+    animate.add_argument("--checkpoint", required=True)
+    animate.add_argument("--output", required=True)
+    animate.add_argument("--profile-seed", type=int, default=50_000)
+    animate.add_argument("--fps", type=int, default=8)
+    animate.set_defaults(function=command_animate)
     return parser
 
 
