@@ -1,12 +1,14 @@
-# Algorithm: masked Rainbow-DQfD
+# Learning algorithm: masked Rainbow-DQfD
 
-There is no universally best reinforcement-learning algorithm. This implementation
-uses a research-grade but compact Rainbow variant for a discrete belief MDP. Its
-components are independently inspectable and covered by unit tests.
+I use a compact Rainbow-DQfD agent for the discrete belief MDP. I chose this
+combination because off-policy transitions are reusable, the action space is small,
+and model-based demonstrations can help bridge the delay between movement and an
+informative sample. I do not claim that Rainbow-DQfD is universally best or that
+deep Q-learning is globally optimal for this problem.
 
 ## Distributional Bellman target
 
-The network represents a categorical return distribution on fixed atoms
+My network represents a categorical return distribution on fixed atoms
 \(z_i=v_{min}+i\Delta z\), \(i=0,\ldots,N-1\):
 
 \[
@@ -15,82 +17,104 @@ Q_\theta(b,a)=\sum_i z_i p_{\theta,i}(b,a).
 \]
 
 For an n-step replay item, the online network selects a valid action and the target
-network evaluates it (Double DQN):
+network evaluates it, giving the Double-DQN target
 
 \[
 a^*=\arg\max_{a\in\mathcal A(b_{t+n})}Q_\theta(b_{t+n},a),\qquad
 Tz_i=\mathrm{clip}\left(R_t^{(n)}+\gamma^n(1-d_t)z_i,v_{min},v_{max}\right).
 \]
 
-The target probabilities are linearly projected onto adjacent support atoms. The
-per-item loss is cross entropy
+I linearly project the target probabilities onto adjacent support atoms and minimise
+the per-item cross-entropy
 
 \[
 \ell_i=-\sum_j [\Phi_zT Z_{\bar\theta}]_j\log p_{\theta,j}(b_t,a_t).
 \]
 
-Tests verify that projection conserves probability, including the exact-atom case.
-The C51 support must cover plausible returns; support clipping frequency should be
-monitored when changing reward or horizon.
+My tests verify that the projection conserves probability, including when a target
+falls exactly on an atom. The C51 support must cover plausible returns; when I
+change rewards or the horizon, I monitor the support-clipping frequency rather
+than assuming the original bounds remain adequate.
 
 ## Network and exploration
 
-Two convolutions, the second with stride two, encode and flatten the eight maps. The complete posterior
-and budgets are concatenated afterward. Dueling streams form
+I encode the eight spatial maps with two convolutional layers, the second using
+stride two, and flatten their output. I then concatenate the complete posterior
+and budget scalars. Separate dueling streams form
 
 \[
 Z(b,a)=V(b)+A(b,a)-|\mathcal A|^{-1}\sum_{a'}A(b,a').
 \]
 
-Factorised Gaussian NoisyLinear layers learn exploration scale. Evaluation disables
-noise and masks infeasible Q-values to \(-\infty\). Replay warm-up uses uniformly
-random valid actions when no demonstrations are configured.
+Factorised Gaussian NoisyLinear layers learn the exploration scale. During
+evaluation I disable the learned noise and mask infeasible Q-values to
+\(-\infty\). If demonstrations are disabled, replay warm-up uses uniformly random
+valid actions.
 
 ## Demonstration pretraining
 
-The path-aware greedy-information policy supplies 128 training-only demonstrations.
-In addition to the C51 loss, expert transitions receive the DQfD large-margin term
+For the primary dense-field study, my path-aware greedy-information planner
+provides 128 training-only demonstration trajectories. In addition to the C51
+loss, expert transitions receive the DQfD large-margin term
 
 \[
 J_E=\max_{a\in\mathcal A(b)}[Q_\theta(b,a)+l(a_E,a)]-Q_\theta(b,a_E),
 \]
 
-where \(l(a_E,a_E)=0\) and \(l(a_E,a)=0.8\) otherwise. The network receives 1,000
-pretraining updates, then continues off-policy Rainbow learning. Replay capacity is
-large enough that the prescribed demonstration and online transitions are retained
-for the 30,000-step study. This is explicitly a Rainbow-DQfD composite, not the
-canonical Atari Rainbow protocol.
+where \(l(a_E,a_E)=0\) and \(l(a_E,a)=0.8\) otherwise. I apply 1,000
+pretraining updates and then continue with off-policy Rainbow learning. The replay
+capacity is large enough to retain the prescribed demonstration and online
+transitions throughout the 30,000-step dense study.
+
+This dependence on a strong model-based demonstrator is part of the method. The
+result should be interpreted as planner-guided learning, not as evidence that an
+uninformed neural agent discovered the sampling strategy independently. The
+rare-wrackline stress test strengthens this dependence further, using 5,000
+pretraining updates and demonstration-loss weight 10 to avoid repeated sampling of
+one high-value cell. I describe the implementation as a Rainbow-DQfD composite,
+not as the canonical Atari Rainbow protocol.
 
 ## Replay and optimisation
 
-Five-step transitions are accumulated without crossing episode boundaries. The
-replay tree samples item \(i\) with
+I accumulate five-step transitions without crossing episode boundaries. The
+prioritised replay tree samples item \(i\) according to
 
 \[
 P(i)=p_i^\alpha/\sum_k p_k^\alpha,\qquad
 w_i=\frac{(NP(i))^{-\beta}}{\max_j(NP(j))^{-\beta}},
 \]
 
-where \(p_i=\ell_i+10^{-6}\). Beta anneals from 0.4 to 1. Float16 map storage is
-converted back to float32 for learning; posterior sufficient statistics remain
-float32. Gradient norm is clipped at 10. The target network is hard-updated every
-1,000 environment steps.
+where \(p_i=\ell_i+10^{-6}\). I anneal beta from 0.4 to 1. I store spatial maps
+as float16 and convert them to float32 for learning; posterior sufficient
+statistics remain float32. I clip the gradient norm at 10 and hard-update the
+target network every 1,000 environment steps.
 
 ## Deliberate departures and limitations
 
-- Canonical Rainbow also combined the components in a particular Atari training
-  protocol; “Rainbow” here describes the same algorithmic components, not a claim
-  of identical hyperparameters or benchmark conditions.
-- Recurrent R2D2/IQN is not used because the complete Bayesian belief is observed.
-- Deep nonlinear off-policy learning has no global convergence guarantee. The exact
-  Bayesian reward does not confer a proof that the neural policy is optimal.
-- The greedy-information baseline exploits model knowledge and may outperform RL.
-  That outcome is scientifically informative, not a failed experiment.
+- Canonical Rainbow combined the same components in a particular Atari protocol.
+  I use its algorithmic components without claiming identical hyperparameters or
+  benchmark conditions.
+- I do not use recurrent R2D2 or IQN because the complete Bayesian belief is
+  observed under my assumed model.
+- Deep nonlinear off-policy learning has no global convergence guarantee. An exact
+  Bayesian reward does not prove that the learned neural policy is optimal.
+- The checked dense-field experiment uses three training seeds. Its uncertainty
+  estimates therefore include only limited between-agent variation.
+- The training and evaluation profiles are generated procedurally from the same
+  model family used by the Bayesian belief. Performance on this well-specified
+  synthetic problem does not establish robustness to real or out-of-distribution
+  beaches.
+- With fixed features and homoscedastic Gaussian noise, covariance reduction is a
+  function of sampling locations rather than observed concentration values. The
+  experiment primarily tests path planning, not observation-adaptive discovery.
+- The greedy-information baseline has direct model access and slightly outperforms
+  Rainbow-DQfD in the primary experiment. I treat that outcome as a substantive
+  result rather than evidence of RL optimality.
 
 Primary sources: [Rainbow](https://doi.org/10.1609/aaai.v32i1.11796),
 [C51](https://doi.org/10.48550/arXiv.1707.06887),
 [Double DQN](https://doi.org/10.1609/aaai.v30i1.10295),
 [prioritised replay](https://doi.org/10.48550/arXiv.1511.05952), and
-[NoisyNet](https://openreview.net/forum?id=zgUEeXkag9).
-The demonstration objective follows [Deep Q-learning from Demonstrations
-(Hester et al., 2018)](https://doi.org/10.1609/aaai.v32i1.11757).
+[NoisyNet](https://openreview.net/forum?id=zgUEeXkag9). My demonstration objective
+follows [Deep Q-learning from Demonstrations (Hester et al.,
+2018)](https://doi.org/10.1609/aaai.v32i1.11757).
