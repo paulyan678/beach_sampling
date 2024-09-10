@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from pathlib import Path
 
 import numpy as np
@@ -84,12 +84,33 @@ def policy_rollout(
     return env, frames
 
 
+def sampling_mission_frames(frames: list[PolicyFrame], sample_budget: int) -> list[PolicyFrame]:
+    """End a presentation at the first state containing the full sample budget.
+
+    The environment and quantitative evaluation retain their fixed horizon. This
+    helper removes only the post-budget presentation tail, during which the belief
+    and cumulative information cannot change because SAMPLE is masked.
+    """
+    if sample_budget <= 0:
+        raise ValueError("sample_budget must be positive")
+    for index, frame in enumerate(frames):
+        if frame.samples >= sample_budget:
+            completed = replace(
+                frame,
+                action_values=np.full_like(frame.action_values, np.nan),
+                selected_action=None,
+            )
+            return [*frames[:index], completed]
+    return frames
+
+
 def render_policy_animation(
     config: ExperimentConfig,
     checkpoint: str | Path,
     output: str | Path,
     profile_seed: int,
     fps: int = 8,
+    active_sampling_only: bool = True,
 ) -> None:
     """Render an accessible GIF showing motion, choices, and posterior learning."""
     # Import plotting lazily so rollouts and tests do not initialise a GUI or the
@@ -103,6 +124,8 @@ def render_policy_animation(
     if fps <= 0:
         raise ValueError("fps must be positive")
     env, frames = policy_rollout(config, checkpoint, profile_seed)
+    if active_sampling_only:
+        frames = sampling_mission_frames(frames, env.config.sample_budget)
     output_path = Path(output)
     if output_path.suffix.lower() != ".gif":
         raise ValueError("animation output must use the .gif extension")
@@ -208,16 +231,17 @@ def render_policy_animation(
         value_axis.set(title="Masked action values", xlabel="expected discounted return Q")
         value_axis.grid(axis="x", alpha=0.2)
 
+        steps = np.asarray([item.step for item in frames[: frame_index + 1]])
         information_axis.plot(
-            np.arange(frame_index + 1),
+            steps,
             information[: frame_index + 1],
             color="#2a6fbb",
             linewidth=2,
         )
         information_axis.scatter(
-            [frame_index], [information[frame_index]], color="#2a6fbb", s=22, zorder=3
+            [frame.step], [information[frame_index]], color="#2a6fbb", s=22, zorder=3
         )
-        information_axis.set_xlim(0, len(frames) - 1)
+        information_axis.set_xlim(0, frames[-1].step)
         information_axis.set_ylim(0, max(float(information.max()) * 1.08, 0.1))
         information_axis.set(
             title="Information collected over time",
@@ -226,8 +250,10 @@ def render_policy_animation(
         )
         information_axis.grid(alpha=0.2)
 
-        if frame.selected_action is None:
-            decision = "episode complete"
+        if frame.selected_action is None and frame.samples >= env.config.sample_budget:
+            decision = "sampling mission complete"
+        elif frame.selected_action is None:
+            decision = "episode horizon reached"
         else:
             decision = f"next decision: {action_names[frame.selected_action]}"
         figure.suptitle(

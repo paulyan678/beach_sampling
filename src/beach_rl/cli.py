@@ -350,6 +350,7 @@ def command_animate(args: argparse.Namespace) -> None:
         args.output,
         profile_seed=args.profile_seed,
         fps=args.fps,
+        active_sampling_only=not args.full_horizon,
     )
     print(json.dumps({"animation": str(args.output), "profile_seed": args.profile_seed}, indent=2))
 
@@ -405,8 +406,13 @@ def build_parser() -> argparse.ArgumentParser:
     animate.add_argument("--config", default="configs/research.yaml")
     animate.add_argument("--checkpoint", required=True)
     animate.add_argument("--output", required=True)
-    animate.add_argument("--profile-seed", type=int, default=50_000)
+    animate.add_argument("--profile-seed", type=int, default=50_755)
     animate.add_argument("--fps", type=int, default=8)
+    animate.add_argument(
+        "--full-horizon",
+        action="store_true",
+        help="include post-budget motion after the final informative sample",
+    )
     animate.set_defaults(function=command_animate)
     return parser
 
