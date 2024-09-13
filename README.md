@@ -18,16 +18,23 @@ model-based greedy planner; it did not outperform that planner.
 
 ![A trained Rainbow-DQfD agent moving and sampling in a simulated beach environment](docs/assets/rainbow-policy-animation.gif)
 
-This animation follows one trained agent on held-out profile 50,000. The left panel
-shows the simulated deposition-risk prior, the robot, its path, and sampled cells.
+This animation follows agent seed 47 on held-out profile 50,755. I selected this
+illustrative episode using a central-and-complete rule rather than the highest
+return: its information gain and RMSE are both near the pooled medians, it uses ten
+distinct samples, and it has no repeated back-and-forth tail during active sampling.
+The left panel shows the simulated deposition-risk prior, the robot, its path, and
+sampled cells.
 The upper-right panel shows the Bayesian posterior standard deviation. The middle
 panel exposes the network's masked action values and highlights the action selected
 at each step. The lower panel accumulates the exact information obtained from
 samples. The initial state has no measurements and broad uncertainty; after ten
 samples, uncertainty has contracted around informative basis regions and the agent
-has collected 5.615 nats on this example. This trajectory explains the mechanism,
-but the aggregate conclusions below come from the full lockbox evaluation rather
-than this single episode.
+has collected 5.330 nats on this example. The presentation stops when the sampling
+budget is exhausted at step 51 of 64 because no later action can change the belief
+or information. The fixed-horizon evaluation still includes all 64 transitions,
+and `--full-horizon` remains available for diagnostic rendering. This trajectory
+explains the mechanism, but the aggregate conclusions below come from the full
+lockbox evaluation rather than this single episode.
 
 ## Research question
 
@@ -270,7 +277,7 @@ not robustness of a 100× effect.
 | [`results/rare_hotspot_100x/background_loading_sensitivity.png`](results/rare_hotspot_100x/background_loading_sensitivity.png) | Greedy/random ratio over six validation-only background loadings. The rapid decline shows that the sparse-regime ratio is assumption-sensitive. |
 | [`results/rare_hotspot_100x/validation/benchmark.png`](results/rare_hotspot_100x/validation/benchmark.png) | Rare-regime checkpoint-selection comparison. It is a model-selection diagnostic, not an additional test set. |
 | [`results/rare_hotspot_100x/validation/coverage.png`](results/rare_hotspot_100x/validation/coverage.png) | Validation sampling frequencies showing the same remote-band targeting. It supports behavioural consistency without adding an independent claim. |
-| [`docs/assets/rainbow-policy-animation.gif`](docs/assets/rainbow-policy-animation.gif) | A step-by-step dense-profile rollout exposing the environment, posterior uncertainty, action values, path, samples, and cumulative information from initial to final belief. |
+| [`docs/assets/rainbow-policy-animation.gif`](docs/assets/rainbow-policy-animation.gif) | A representative dense-profile rollout exposing the environment, posterior uncertainty, action values, path, samples, and cumulative information through the tenth and final informative sample. |
 
 ## Limitations
 
@@ -306,8 +313,8 @@ beach-rl study --config configs/research.yaml --output runs/research
 
 # Render a selected trained policy
 beach-rl animate --config configs/research.yaml \
-  --checkpoint runs/research/training/seed_11/checkpoint_step_30000.pt \
-  --profile-seed 50000 \
+  --checkpoint runs/research/training/seed_47/checkpoint_step_30000.pt \
+  --profile-seed 50755 \
   --output runs/research/rainbow-policy-animation.gif
 
 # Higher-replication extension proposed for follow-up work
