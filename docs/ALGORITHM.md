@@ -9,27 +9,27 @@ deep Q-learning is globally optimal for this problem.
 ## Distributional Bellman target
 
 My network represents a categorical return distribution on fixed atoms
-\(z_i=v_{min}+i\Delta z\), \(i=0,\ldots,N-1\):
+$z_i=v_{min}+i\Delta z$, $i=0,\ldots,N-1$:
 
-\[
+$$
 Z_\theta(b,a)=\sum_i p_{\theta,i}(b,a)\,\delta_{z_i},\qquad
 Q_\theta(b,a)=\sum_i z_i p_{\theta,i}(b,a).
-\]
+$$
 
 For an n-step replay item, the online network selects a valid action and the target
 network evaluates it, giving the Double-DQN target
 
-\[
+$$
 a^*=\arg\max_{a\in\mathcal A(b_{t+n})}Q_\theta(b_{t+n},a),\qquad
 Tz_i=\mathrm{clip}\left(R_t^{(n)}+\gamma^n(1-d_t)z_i,v_{min},v_{max}\right).
-\]
+$$
 
 I linearly project the target probabilities onto adjacent support atoms and minimise
 the per-item cross-entropy
 
-\[
+$$
 \ell_i=-\sum_j [\Phi_zT Z_{\bar\theta}]_j\log p_{\theta,j}(b_t,a_t).
-\]
+$$
 
 My tests verify that the projection conserves probability, including when a target
 falls exactly on an atom. The C51 support must cover plausible returns; when I
@@ -42,13 +42,13 @@ I encode the eight spatial maps with two convolutional layers, the second using
 stride two, and flatten their output. I then concatenate the complete posterior
 and budget scalars. Separate dueling streams form
 
-\[
+$$
 Z(b,a)=V(b)+A(b,a)-|\mathcal A|^{-1}\sum_{a'}A(b,a').
-\]
+$$
 
 Factorised Gaussian NoisyLinear layers learn the exploration scale. During
 evaluation I disable the learned noise and mask infeasible Q-values to
-\(-\infty\). If demonstrations are disabled, replay warm-up uses uniformly random
+$-\infty$. If demonstrations are disabled, replay warm-up uses uniformly random
 valid actions.
 
 ## Demonstration pretraining
@@ -57,11 +57,11 @@ For the primary dense-field study, my path-aware greedy-information planner
 provides 128 training-only demonstration trajectories. In addition to the C51
 loss, expert transitions receive the DQfD large-margin term
 
-\[
+$$
 J_E=\max_{a\in\mathcal A(b)}[Q_\theta(b,a)+l(a_E,a)]-Q_\theta(b,a_E),
-\]
+$$
 
-where \(l(a_E,a_E)=0\) and \(l(a_E,a)=0.8\) otherwise. I apply 1,000
+where $l(a_E,a_E)=0$ and $l(a_E,a)=0.8$ otherwise. I apply 1,000
 pretraining updates and then continue with off-policy Rainbow learning. The replay
 capacity is large enough to retain the prescribed demonstration and online
 transitions throughout the 30,000-step dense study.
@@ -77,14 +77,14 @@ not as the canonical Atari Rainbow protocol.
 ## Replay and optimisation
 
 I accumulate five-step transitions without crossing episode boundaries. The
-prioritised replay tree samples item \(i\) according to
+prioritised replay tree samples item $i$ according to
 
-\[
+$$
 P(i)=p_i^\alpha/\sum_k p_k^\alpha,\qquad
 w_i=\frac{(NP(i))^{-\beta}}{\max_j(NP(j))^{-\beta}},
-\]
+$$
 
-where \(p_i=\ell_i+10^{-6}\). I anneal beta from 0.4 to 1. I store spatial maps
+where $p_i=\ell_i+10^{-6}$. I anneal beta from 0.4 to 1. I store spatial maps
 as float16 and convert them to float32 for learning; posterior sufficient
 statistics remain float32. I clip the gradient norm at 10 and hard-update the
 target network every 1,000 environment steps.

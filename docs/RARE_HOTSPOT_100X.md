@@ -4,23 +4,23 @@
 
 In my original dense-field benchmark, no reinforcement-learning algorithm can
 reach a 100× advantage over random sampling. For a linear-Gaussian design with
-sample set \(S\),
+sample set $S$,
 
-\[
+$$
 G(S)=I(\theta;y_S)
 =\tfrac12\log\det\!\left(I+\sigma_n^{-2}
 \Sigma_0^{1/2}\Phi_S^T\Phi_S\Sigma_0^{1/2}\right).
-\]
+$$
 
-If \(\|\Sigma_0^{1/2}\phi_x\|\le L\), budget \(B\), dimension \(d\), and
-\(r=\min(B,d)\), concavity of log determinant gives
+If $\|\Sigma_0^{1/2}\phi_x\|\le L$, budget $B$, dimension $d$, and
+$r=\min(B,d)$, concavity of log determinant gives
 
-\[
+$$
 G(S)\le \frac r2\log\left(1+\frac{BL^2}{r\sigma_n^2}\right).
-\]
+$$
 
-Across my original lockbox, \(L\le0.643593\), \(B=10\), \(d=18\), and
-\(\sigma_n=0.2\), so \(G\le12.1484\) nats. Random sampling already obtains
+Across my original lockbox, $L\le0.643593$, $B=10$, $d=18$, and
+$\sigma_n=0.2$, so $G\le12.1484$ nats. Random sampling already obtains
 2.6612 nats; even a teleporting optimal policy is therefore bounded by 4.565×
 random. I retain the observed ~2× result from that experiment unchanged in
 `results/research`.
@@ -40,16 +40,16 @@ a restatement of the dense-field result or a claim about calibrated real beaches
 ## My nonstationary wrackline model
 
 I use a 12×48 beach, 96 transitions, ten samples, Gaussian noise variance 0.04,
-and 18 latent modes with the moderate prior \(\theta\sim\mathcal N(m,I)\). Only
+and 18 latent modes with the moderate prior $\theta\sim\mathcal N(m,I)$. Only
 the observation loading is nonstationary:
 
-\[
+$$
 \phi_j(x)=
 \begin{cases}
 0.30,&x\text{ is the deposition-prone cell assigned to mode }j,\\
 0.005,&\text{otherwise.}
 \end{cases}
-\]
+$$
 
 I place the 18 high-loading cells at the cells with greatest physics-guided
 deposition risk in a narrow, remote wrackline band. Every other feature/cell
@@ -57,10 +57,10 @@ loading remains 0.005—never zero. The random-policy denominator is therefore
 finite and explicitly tested. Ten repeated background measurements have the
 closed-form information
 
-\[
+$$
 G_{bg}=\tfrac12\log\left(1+
 \frac{10\times18\times0.005^2}{0.2^2}\right)=0.0533\text{ nats}.
-\]
+$$
 
 High-value measurements identify different ordinary-variance modes, producing
 about 5.9 absolute nats. I do not use a reward multiplier, post-hoc normalization,
@@ -78,7 +78,7 @@ to motivate the scenario; they do **not** calibrate my chosen 0.30/0.005 loading
 
 ## Learning algorithm
 
-I formulate the task with a finite-horizon objective and \(\gamma=1\), matching
+I formulate the task with a finite-horizon objective and $\gamma=1$, matching
 the undiscounted information reported at evaluation. My agent is masked
 Rainbow-DQfD: Double-Q C51, dueling heads, prioritized five-step replay, NoisyNet
 exploration, and a large-margin loss on 128 training-only greedy-information
@@ -112,9 +112,9 @@ I fixed the full protocol before opening the final lockbox:
 
 I prespecified the following threshold diagnostic before evaluation:
 
-\[
+$$
 D_i=G_{RL,i}-100G_{random,i}.
-\]
+$$
 
 Its mean is 0.5498 nats and its paired hierarchical 95% interval is
 **[0.5082, 0.5817]**, entirely above zero. The learned policy therefore exceeds the

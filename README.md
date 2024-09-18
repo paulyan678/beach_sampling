@@ -77,21 +77,21 @@ selection.
 
 I model latent log concentration with a linear-Gaussian spatial model
 
-\[
+$$
 y_x=\phi_x^\top\theta+\epsilon,\qquad
 \theta\sim\mathcal N(m_0,\Sigma_0),\qquad
 \epsilon\sim\mathcal N(0,\sigma_n^2).
-\]
+$$
 
-After observing a sample at cell \(x\), I update the posterior mean and covariance
+After observing a sample at cell $x$, I update the posterior mean and covariance
 with the conjugate rank-one Bayesian update. The information contributed by that
 sample is exactly
 
-\[
+$$
 I(\theta;y_x\mid D_t)
 =\frac12\log\left(1+
 \frac{\phi_x^\top\Sigma_t\phi_x}{\sigma_n^2}\right).
-\]
+$$
 
 The agent observes eight spatial channels: elevation, deposition risk, posterior
 predictive mean, posterior predictive standard deviation, sample counts, robot
@@ -121,7 +121,7 @@ The implementation combines:
 6. infeasible-action masking in both behaviour and Bellman targets; and
 7. DQfD large-margin pretraining from 128 path-aware greedy demonstrations.
 
-For an \(n\)-step transition, the online network chooses the feasible next action
+For an $n$-step transition, the online network chooses the feasible next action
 and the target network supplies its categorical return distribution. Expert
 transitions additionally receive a large-margin loss that ranks the demonstrated
 action above alternatives. During evaluation I disable NoisyNet randomness and take
@@ -180,7 +180,7 @@ use matched beach profiles and a 20,000-draw sign-randomisation test.
 | Random | 2.661 | [2.632, 2.690] | 1.000× | 0.2389 |
 
 Relative to random, the learned policy gained 2.654 additional nats (paired 95%
-interval [2.615, 2.696], randomisation \(p\approx5\times10^{-5}\)). It collected
+interval [2.615, 2.696], randomisation $p\approx5\times10^{-5}$). It collected
 54% more information than lawnmower coverage and finished only 2.7% below the greedy
 planner. Its posterior RMSE was descriptively 31% lower than random, although I did
 not archive a confidence interval for that secondary metric.
