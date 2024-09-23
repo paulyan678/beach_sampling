@@ -1,5 +1,9 @@
 # Autonomous beach microplastic sampling with Bayesian Rainbow-DQfD
 
+> **Research supervision:** I completed this project under the guidance and
+> supervision of [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/),
+> Associate Professor at The University of Texas at Austin.
+
 I developed this research project to study how an autonomous mobile robot can choose
 where to travel and sample when its time and sampling budget are limited. Beach
 microplastic surveys are spatial decision problems: measurements are costly, nearby
@@ -346,6 +350,14 @@ is related to Gaussian-process sensor placement [Krause et al.
 (2008)](https://jmlr.org/papers/v9/krause08a.html). The XBeach boundary follows the
 [official manual](https://xbeach.readthedocs.io/en/latest/xbeach_manual.html) and
 [Roelvink et al. (2009)](https://doi.org/10.1016/j.coastaleng.2009.08.006).
+
+## Research supervision and acknowledgment
+
+I conducted and completed this research under the guidance and supervision of
+[Christian Claudel](https://caee.utexas.edu/person/christian-claudel/), Associate
+Professor in the Fariborz Maseeh Department of Civil, Architectural and Environmental
+Engineering at The University of Texas at Austin. I gratefully acknowledge his
+guidance and supervision throughout this project.
 
 ## License and citation
 
