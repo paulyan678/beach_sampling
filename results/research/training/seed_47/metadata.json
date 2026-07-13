@@ -1,0 +1,67 @@
+{
+  "seed": 47,
+  "elapsed_seconds": 358.98716841599526,
+  "device": "mps",
+  "torch_version": "2.7.1",
+  "numpy_version": "2.2.6",
+  "python": "3.10.14",
+  "platform": "macOS-26.5.2-arm64-arm-64bit",
+  "config": {
+    "beach": {
+      "height": 10,
+      "width": 18,
+      "rbf_rows": 3,
+      "rbf_cols": 6,
+      "rbf_length_scale": 0.23,
+      "horizon": 64,
+      "sample_budget": 10,
+      "observation_noise": 0.2,
+      "prior_variance": 1.0,
+      "movement_cost": 0.003,
+      "invalid_action_cost": 0.05,
+      "revisit_cost": 0.002,
+      "wait_cost": 0.001,
+      "potential_shaping_scale": 0.5,
+      "shaping_gamma": 0.99
+    },
+    "agent": {
+      "atoms": 51,
+      "v_min": -0.5,
+      "v_max": 8.0,
+      "hidden_dim": 256,
+      "gamma": 0.99,
+      "n_step": 5,
+      "learning_rate": 0.0001,
+      "batch_size": 64,
+      "replay_capacity": 40000,
+      "min_replay_size": 1000,
+      "update_frequency": 4,
+      "target_update_frequency": 1000,
+      "gradient_clip": 10.0,
+      "per_alpha": 0.6,
+      "per_beta_start": 0.4,
+      "per_beta_steps": 50000,
+      "noisy_sigma": 0.5,
+      "demonstration_episodes": 128,
+      "pretrain_updates": 1000,
+      "demonstration_margin": 0.8,
+      "demonstration_loss_weight": 1.0
+    },
+    "training": {
+      "total_steps": 30000,
+      "seeds": [
+        11,
+        29,
+        47
+      ],
+      "eval_profiles": 1024,
+      "eval_seed": 50000,
+      "validation_profiles": 128,
+      "validation_seed": 20000,
+      "checkpoint_every": 10000,
+      "device": "auto",
+      "deterministic_torch": true
+    }
+  },
+  "demonstration_transitions": 8192
+}

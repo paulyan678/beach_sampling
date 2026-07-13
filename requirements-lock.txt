@@ -1,0 +1,9 @@
+# Tested direct dependency lock for the checked macOS/Python 3.10 run.
+# Install with: python -m pip install -r requirements-lock.txt
+numpy==2.2.6
+torch==2.7.1
+matplotlib==3.10.3
+pandas==2.2.3
+PyYAML==6.0.2
+pytest==8.4.1
+ruff==0.15.21

@@ -1,0 +1,25 @@
+beach:
+  height: 8
+  width: 12
+  horizon: 24
+  sample_budget: 5
+agent:
+  atoms: 21
+  hidden_dim: 64
+  batch_size: 8
+  replay_capacity: 256
+  min_replay_size: 16
+  update_frequency: 2
+  target_update_frequency: 20
+  demonstration_episodes: 2
+  pretrain_updates: 4
+training:
+  total_steps: 100
+  seeds: [7]
+  eval_profiles: 16
+  eval_seed: 9000
+  validation_profiles: 4
+  validation_seed: 8000
+  checkpoint_every: 50
+  device: cpu
+  deterministic_torch: true

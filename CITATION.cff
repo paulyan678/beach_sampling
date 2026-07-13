@@ -1,0 +1,17 @@
+cff-version: 1.2.0
+message: "If you use this software, please cite it using these metadata."
+title: "Autonomous Beach Microplastic Sampling with Bayesian Rainbow DQN"
+type: software
+authors:
+  - family-names: Yan
+    given-names: Paul
+version: 0.1.0
+date-released: 2026-07-13
+license: MIT
+repository-code: "https://github.com/paulyan678/beach_sampling"
+keywords:
+  - reinforcement learning
+  - Bayesian experimental design
+  - microplastic sampling
+  - XBeach
+  - informative path planning
