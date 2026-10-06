@@ -1,8 +1,11 @@
 # Run identity and release decisions
 
-The July 2026 experiments are new follow-up work after the 2024 UT Austin
-assistantship. Preserve that distinction in citations, biographies and summaries.
-The historical result files and their existing checksums remain unchanged.
+The author confirms that the methods and results were completed during the
+January–September 2024 UT Austin assistantship. The July 2026 archived experiments
+are reruns for publication on GitHub. Preserve both the original-work attribution
+and the actual rerun dates in citations, biographies and summaries. The committed
+result files establish the archived rerun, rather than independently establishing
+the original-work dates. Existing result files and checksums remain unchanged.
 
 ## Start a new run instead of reusing a directory
 

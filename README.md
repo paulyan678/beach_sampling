@@ -1,10 +1,11 @@
 # Autonomous beach microplastic sampling with Bayesian Rainbow-DQfD
 
-> **Chronology:** My 2024 research assistantship was supervised by
+> **Chronology:** I completed the project methods and results during my
+> January–September 2024 research assistantship, supervised by
 > [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/) at UT Austin.
-> The implementation and numerical experiments published here are **new 2026
-> follow-up work**, including the July 13, 2026 dense-field run. The 1.997×
-> result is not an outcome claimed for the 2024 assistantship.
+> The July 13, 2026 archived run is a **rerun for GitHub publication of that work**.
+> The original work dates are author-confirmed; the committed result files retain
+> their actual 2026 rerun dates.
 
 Current evidence: 1,024 paired simulated profiles, three trained agents, and
 checksummed episode rows support the reported statistics. Original trained
@@ -374,7 +375,7 @@ My 2024 assistantship was conducted under the guidance and supervision of
 [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/), Associate
 Professor in the Fariborz Maseeh Department of Civil, Architectural and Environmental
 Engineering at The University of Texas at Austin. I gratefully acknowledge his
-guidance during the assistantship. The 2026 follow-up experiments are separately dated above.
+guidance during the assistantship. The 2026 publication rerun is separately dated above.
 
 ## License and citation
 
