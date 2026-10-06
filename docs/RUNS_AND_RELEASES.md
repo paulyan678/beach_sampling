@@ -49,7 +49,9 @@ python -m beach_rl.artifacts export-release --run runs/my-study \
   --output releases/my-study-with-weights --include-checkpoints
 ```
 
-Export verifies the run receipt and artifact hashes before copying. A release
+Export verifies the run receipt and artifact hashes before copying. For a study,
+this includes all training checkpoints, even candidates validation did not select.
+A release
 manifest lists included files and explicitly omitted checkpoints. It never
 uploads or publishes files. Inspect the bundle, then publish it as an immutable
 release tied to the recorded commit. Existing exports cannot be overwritten.

@@ -8,7 +8,13 @@ import pytest
 
 from beach_rl.artifacts import export_release, regenerate
 from beach_rl.config import ExperimentConfig
-from beach_rl.provenance import begin_run, checkpoint_candidates, split_manifest
+from beach_rl.provenance import (
+    begin_run,
+    checkpoint_candidates,
+    sha256,
+    split_manifest,
+    write_receipt,
+)
 from beach_rl.training import train_agent
 
 
@@ -62,6 +68,29 @@ def test_overlapping_split_namespaces_are_rejected():
     cfg = small_config(3)
     with pytest.raises(ValueError, match="overlap"):
         split_manifest(replace(cfg, training=replace(cfg.training, eval_seed=8000)))
+
+
+def test_study_export_accounts_for_unselected_checkpoints(tmp_path):
+    run = tmp_path / "study"
+    identity = begin_run(run, small_config(5), kind="study")
+    child = run / "training/seed_7"
+    train_agent(small_config(5), 7, child)
+    write_receipt(
+        run / "completed.json",
+        {
+            "run_id": identity,
+            "artifacts": {
+                str(p.relative_to(run)): sha256(p)
+                for p in run.rglob("*")
+                if p.is_file() and p.suffix != ".pt"
+            },
+        },
+    )
+    export_release(run, tmp_path / "without")
+    omitted = json.loads((tmp_path / "without/release-manifest.json").read_text())
+    assert len(omitted["omitted_checkpoints"]) == 2
+    export_release(run, tmp_path / "with", include_checkpoints=True)
+    assert len(list((tmp_path / "with").rglob("*.pt"))) == 2
 
 
 def test_archived_dense_statistics_regenerate_from_raw_rows(tmp_path):

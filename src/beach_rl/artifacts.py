@@ -81,6 +81,15 @@ def export_release(run: Path, output: Path, *, include_checkpoints: bool = False
     expected.update(
         {item["checkpoint"]: item["sha256"] for item in receipt.get("selected_checkpoints", [])}
     )
+    # Study receipts reference each training receipt. Preserve every emitted
+    # checkpoint, including candidates that validation did not select.
+    for name in list(expected):
+        if name.endswith("/completed.json"):
+            child_path = run / name
+            child = json.loads(child_path.read_text())
+            prefix = str(Path(name).parent)
+            for item in child.get("checkpoints", []):
+                expected[f"{prefix}/{item['file']}"] = item["sha256"]
     expected["run.json"] = sha256(run / "run.json")
     expected["completed.json"] = sha256(run / "completed.json")
     for name, digest in expected.items():
