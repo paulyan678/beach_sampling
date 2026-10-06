@@ -1,8 +1,24 @@
 # Autonomous beach microplastic sampling with Bayesian Rainbow-DQfD
 
-> **Research supervision:** I completed this project under the guidance and
-> supervision of [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/),
-> Associate Professor at The University of Texas at Austin.
+> **Chronology:** My 2024 research assistantship was supervised by
+> [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/) at UT Austin.
+> The implementation and numerical experiments published here are **new 2026
+> follow-up work**, including the July 13, 2026 dense-field run. The 1.997×
+> result is not an outcome claimed for the 2024 assistantship.
+
+Current evidence: 1,024 paired simulated profiles, three trained agents, and
+checksummed episode rows support the reported statistics. Original trained
+checkpoints were not committed and could not be recovered from tracked Git
+history. Recomputing these tables is different from rerunning those agents.
+
+```bash
+python -m beach_rl.artifacts report --episodes results/research/episodes.csv --output runs/recomputed
+```
+
+Fresh training/study commands require a new or empty output directory. They
+record immutable source/configuration/environment/split receipts and select only
+integrity-checked checkpoints emitted by that run, including the final checkpoint.
+See [release and run decisions](docs/RUNS_AND_RELEASES.md).
 
 I developed this research project to study how an autonomous mobile robot can choose
 where to travel and sample when its time and sampling budget are limited. Beach
@@ -300,13 +316,14 @@ not robustness of a 100× effect.
 
 ## Running the project
 
-Python 3.10–3.12 is supported.
+The current tested and CI environment is Python 3.12. The package declares Python
+3.10+ compatibility; other interpreter versions are not part of the current CI run.
 
 ```bash
 python -m venv .venv
 source .venv/bin/activate
-python -m pip install -r requirements-lock.txt
-python -m pip install -e .
+python -m pip install -r requirements-ci.txt
+python -m pip install --no-deps -e .
 pytest
 
 # Fast end-to-end check
@@ -353,11 +370,11 @@ is related to Gaussian-process sensor placement [Krause et al.
 
 ## Research supervision and acknowledgment
 
-I conducted and completed this research under the guidance and supervision of
+My 2024 assistantship was conducted under the guidance and supervision of
 [Christian Claudel](https://caee.utexas.edu/person/christian-claudel/), Associate
 Professor in the Fariborz Maseeh Department of Civil, Architectural and Environmental
 Engineering at The University of Texas at Austin. I gratefully acknowledge his
-guidance and supervision throughout this project.
+guidance during the assistantship. The 2026 follow-up experiments are separately dated above.
 
 ## License and citation
 

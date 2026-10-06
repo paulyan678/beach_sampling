@@ -30,10 +30,11 @@ results.
 
 ## Recreating my software environment
 
-`requirements-lock.txt` pins the direct Python packages I used for the checked
-run; the package metadata constrains their compatible ranges. CI independently
-resolves those ranges on Python 3.10 and 3.12, runs all unit tests, and completes
-an end-to-end CPU study.
+`requirements-lock.txt` preserves the historical experiment's direct-package
+environment. `requirements-ci.txt` pins the dependency closure tested for the
+October 2026 audit fixes. Current CI uses those pins on Python 3.12, runs all unit
+tests, regenerates the archived dense statistics, and completes an end-to-end CPU
+smoke study. This does not rerun the full historical training experiment.
 
 For strict archival work, I additionally record:
 
