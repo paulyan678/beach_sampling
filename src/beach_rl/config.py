@@ -110,9 +110,12 @@ class TrainingConfig:
             self.total_steps <= 0
             or self.eval_profiles <= 0
             or self.validation_profiles <= 0
+            or self.checkpoint_every <= 0
             or not self.seeds
         ):
-            raise ValueError("training steps, profiles, and seeds must be non-empty/positive")
+            raise ValueError("training steps, profiles, checkpoints, and seeds must be positive")
+        if len(set(self.seeds)) != len(self.seeds) or min(self.seeds) < 0:
+            raise ValueError("training seeds must be unique and non-negative")
 
 
 @dataclass(frozen=True)

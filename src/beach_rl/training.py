@@ -17,6 +17,7 @@ from beach_rl.agent import RainbowAgent
 from beach_rl.config import ExperimentConfig
 from beach_rl.env import BeachSamplingEnv
 from beach_rl.policies import GreedyInformationPolicy
+from beach_rl.provenance import begin_run, sha256, write_receipt
 from beach_rl.replay import NStepAccumulator, OneStep, PrioritisedReplay
 from beach_rl.simulator import BeachProfile
 
@@ -76,9 +77,10 @@ def train_agent(
     output_dir: str | Path,
     profile_provider: Callable[[int], BeachProfile] | None = None,
 ) -> tuple[RainbowAgent, pd.DataFrame, Path]:
-    seed_everything(seed, config.training.deterministic_torch)
     output = Path(output_dir)
-    output.mkdir(parents=True, exist_ok=True)
+    run_id = begin_run(output, config, kind="training", seed=seed)
+    saved_checkpoints = []
+    seed_everything(seed, config.training.deterministic_torch)
     env = BeachSamplingEnv(config.beach, seed=seed)
     agent = RainbowAgent(
         config.beach,
@@ -183,13 +185,27 @@ def train_agent(
         if step % config.training.checkpoint_every == 0:
             agent.save(
                 output / f"checkpoint_step_{step}.pt",
-                metadata={"seed": seed, "step": step},
+                metadata={"seed": seed, "step": step, "run_id": run_id},
+            )
+            saved_checkpoints.append(
+                {
+                    "file": f"checkpoint_step_{step}.pt",
+                    "step": step,
+                    "sha256": sha256(output / f"checkpoint_step_{step}.pt"),
+                }
             )
 
     checkpoint = output / "checkpoint_final.pt"
     agent.save(
         checkpoint,
-        metadata={"seed": seed, "step": config.training.total_steps},
+        metadata={"seed": seed, "step": config.training.total_steps, "run_id": run_id},
+    )
+    saved_checkpoints.append(
+        {
+            "file": checkpoint.name,
+            "step": config.training.total_steps,
+            "sha256": sha256(checkpoint),
+        }
     )
     frame = pd.DataFrame(rows)
     frame.to_csv(output / "training.csv", index=False)
@@ -208,4 +224,13 @@ def train_agent(
         ),
     }
     (output / "metadata.json").write_text(json.dumps(metadata, indent=2), encoding="utf-8")
+    write_receipt(
+        output / "completed.json",
+        {
+            "run_id": run_id,
+            "total_steps": config.training.total_steps,
+            "checkpoints": saved_checkpoints,
+            "training_sha256": sha256(output / "training.csv"),
+        },
+    )
     return agent, frame, checkpoint

@@ -31,6 +31,7 @@ from beach_rl.policies import (
     RandomPolicy,
     UniformTargetPolicy,
 )
+from beach_rl.provenance import begin_run, checkpoint_candidates, sha256, write_receipt
 from beach_rl.sensitivity import (
     evaluate_background_loading_sensitivity,
     plot_loading_sensitivity,
@@ -208,7 +209,7 @@ def command_evaluate(args: argparse.Namespace) -> None:
 def command_study(args: argparse.Namespace) -> None:
     config = _config_with_overrides(args)
     output = Path(args.output)
-    output.mkdir(parents=True, exist_ok=True)
+    run_id = begin_run(output, config, kind="study")
     (output / "resolved_config.yaml").write_text(
         yaml.safe_dump(config.to_dict(), sort_keys=False), encoding="utf-8"
     )
@@ -228,6 +229,7 @@ def command_study(args: argparse.Namespace) -> None:
     training_frames: dict[int, pd.DataFrame] = {}
     agents: dict[int, RainbowAgent] = {}
     selection_rows: list[dict[str, int | float | str]] = []
+    selected = []
     selection_seeds = range(
         config.training.validation_seed,
         config.training.validation_seed + config.training.validation_profiles,
@@ -240,7 +242,7 @@ def command_study(args: argparse.Namespace) -> None:
             run_directory,
             train_provider,
         )
-        candidates = sorted(run_directory.glob("checkpoint_step_*.pt"))
+        candidates = checkpoint_candidates(run_directory, config.training.total_steps)
         best_checkpoint: Path | None = None
         best_information = -np.inf
         for checkpoint in candidates:
@@ -265,6 +267,14 @@ def command_study(args: argparse.Namespace) -> None:
         if best_checkpoint is None:
             raise RuntimeError("training produced no model-selection checkpoints")
         agent.load(best_checkpoint)
+        selected.append(
+            {
+                "agent_seed": seed,
+                "checkpoint": str(best_checkpoint.relative_to(output)),
+                "sha256": sha256(best_checkpoint),
+                "validation_information_mean": best_information,
+            }
+        )
         agents[seed] = agent
         training_frames[seed] = frame
     pd.DataFrame(selection_rows).to_csv(output / "model_selection.csv", index=False)
@@ -322,6 +332,18 @@ def command_study(args: argparse.Namespace) -> None:
         trajectory_env,
         RainbowPolicy(agents[config.training.seeds[0]]),
         output / "trajectory_rainbow.png",
+    )
+    write_receipt(
+        output / "completed.json",
+        {
+            "run_id": run_id,
+            "selected_checkpoints": selected,
+            "artifacts": {
+                str(p.relative_to(output)): sha256(p)
+                for p in sorted(output.rglob("*"))
+                if p.is_file() and p.suffix != ".pt"
+            },
+        },
     )
     print(summary.to_string(index=False))
 
